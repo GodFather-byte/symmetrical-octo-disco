@@ -1,5 +1,10 @@
 #define AppName "Recibo PIX"
-#define AppVersion GetEnv("APP_VERSION")
+#define AppVersion "1.0.0"
+#define EnvVersion GetEnv("APP_VERSION")
+#if EnvVersion != ""
+  #undef AppVersion
+  #define AppVersion EnvVersion
+#endif
 
 [Setup]
 AppId={{6F1B2C0E-4A7D-4B8E-9C55-0A1B2C3D4E5F}
