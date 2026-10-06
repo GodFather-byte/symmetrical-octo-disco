@@ -1,16 +1,19 @@
-from recibo_pix.ticket import Recibo, escpos, linhas
+from recibo_pix.ticket import Recibo, blocos, escpos, linhas
 
 
 def test_linhas_largura():
     for col in (48, 32):
-        for l in linhas(Recibo(nome="João", total="R$ 100,00", data="06/10/2026"), col):
+        r = Recibo(nome="Maria Aparecida dos Santos Oliveira", total="R$ 100,00", data="06/10/2026")
+        for l in linhas(r, col):
             assert len(l) <= col
+        for t, tam in blocos(r, col):
+            assert len(t) <= (col if tam == 0x01 else col // 2)
 
 
 def test_campos_preenchidos():
-    txt = "\n".join(linhas(Recibo(nome="João", comissoes="10%", responsavel="Ana", data="06/10/2026")))
-    assert "NOME: João" in txt and "COMISSÕES: 10%" in txt and "RESPONSAVEL: Ana" in txt and "_" not in txt.split("DATA")[0]
-    assert "DATA: 06/10/2026" in txt
+    txt = "\n".join(linhas(Recibo(nome="João", qtd_show="1", comissoes="1", responsavel="Ana", data="06/10/2026")))
+    for esperado in ("NOME", "João", "COMISSÕES", "R$ 65,00", "RESPONSAVEL", "Ana", "06/10/2026"):
+        assert esperado in txt
 
 
 def test_data_vazia_mostra_linha():
@@ -20,6 +23,7 @@ def test_data_vazia_mostra_linha():
 def test_escpos():
     b = escpos(Recibo(comissoes="é"))
     assert b.startswith(b"\x1b@") and b.endswith(b"\x1dV\x42\x00")
+    assert b"\x1ba\x01" in b and b"\x1d!\x11" in b
     assert "COMISSÕES".encode("cp860") in b
 
 
