@@ -118,7 +118,7 @@ class App(tk.Tk):
         ttk.Button(bf, text="Imprimir (Ctrl+P)", command=self.imprimir).pack(side="left", padx=6)
         ttk.Button(bf, text="Limpar", command=self.limpar).pack(side="left", padx=6)
 
-        self.prev = tk.Text(f, width=50, height=15, font=("Courier New", 9), bg="#fffef2", state="disabled")
+        self.prev = tk.Text(f, width=50, height=20, font=("Courier New", 9), bg="#fffef2", state="disabled")
         self.prev.grid(row=n + 5, column=0, columnspan=2, **pad)
 
     def _recibo(self) -> Recibo:

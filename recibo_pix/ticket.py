@@ -1,4 +1,5 @@
 """Monta o comprovante "PAGAMENTO PIX" (texto de preview e bytes ESC/POS)."""
+import textwrap
 from dataclasses import dataclass
 from datetime import date
 
@@ -43,62 +44,58 @@ def calcular_total(qtd_show: str, comissoes: str, valor_show: int = VALOR_SHOW) 
     return f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _campo(rotulo: str, valor: str, colunas: int) -> str:
-    """'ROTULO: valor' (sem linhas de preenchimento)."""
-    valor = " ".join(valor.split())
-    return (f"{rotulo}: {valor}" if valor else f"{rotulo}:")[:colunas]
+# Tamanhos (GS ! n): 0x11 = dobro largura+altura, 0x01 = dobro altura
+GRANDE, ALTO = 0x11, 0x01
 
 
-def _data(valor: str, colunas: int) -> str:
-    rotulo = "DATA"
-    if valor:
-        corpo = f"{rotulo}: {valor}"
-    else:
-        corpo = f"{rotulo}: ____/____/______"
-    return corpo.center(colunas).rstrip()
+def blocos(r: Recibo, colunas: int = 48) -> list[tuple[str, int]]:
+    """Lista de (texto, tamanho): uma linha por campo, bloco centralizado no papel
+    (a centralização é feita com espaços, na largura do tamanho escolhido).
+
+    Papel largo (80 mm): dobro de largura e altura (colunas//2 caracteres).
+    Papel estreito (58 mm): só dobro de altura, para caber o texto.
+    """
+    tam = GRANDE if colunas >= 48 else ALTO
+    larg = colunas // 2 if tam == GRANDE else colunas
+    total = r.total or calcular_total(r.qtd_show, r.comissoes)
+    campos = [
+        ("NOME", r.nome),
+        ("QTD SHOW", r.qtd_show),
+        ("COMISSÕES", r.comissoes),
+        ("TOTAL", total),
+        ("RESPONSAVEL", r.responsavel),
+        ("DATA", r.data or "____/____/______"),
+    ]
+    corpo: list[str] = []
+    for rotulo, valor in campos:
+        valor = " ".join(valor.split())
+        texto = f"{rotulo}: {valor}" if valor else f"{rotulo}:"
+        corpo += textwrap.wrap(texto, larg, break_long_words=True)
+    margem = " " * ((larg - max(len(l) for l in corpo)) // 2)  # bloco centralizado, texto alinhado
+    return [("PAGAMENTO PIX".center(larg).rstrip(), tam), ("", 0)] + [(margem + l, tam) for l in corpo]
 
 
 def linhas(r: Recibo, colunas: int = 48) -> list[str]:
-    """Linhas de texto do comprovante (usadas no preview e na impressão)."""
-    return [
-        "PAGAMENTO PIX".center(colunas),
-        "",
-        _campo("NOME", r.nome, colunas),
-        "",
-        _campo("QTD SHOW", r.qtd_show, colunas),
-        "",
-        _campo("COMISSÕES", r.comissoes, colunas),
-        "",
-        _campo("TOTAL", r.total or calcular_total(r.qtd_show, r.comissoes), colunas),
-        "",
-        _campo("RESPONSAVEL", r.responsavel, colunas),
-        "",
-        _data(r.data, colunas),
-    ]
+    """Texto centralizado para a prévia na tela."""
+    # largura útil = colunas//2 em tamanho dobrado; centraliza esse bloco na prévia
+    out = []
+    for t, tam in blocos(r, colunas):
+        util = colunas // 2 if tam == GRANDE else colunas
+        out.append(" " * ((colunas - util) // 2) + t)
+    return out
 
 
 def escpos(r: Recibo, colunas: int = 48, codepage: int = 3, cortar: bool = True) -> bytes:
     """Bytes ESC/POS. codepage 3 = CP860 (português) em impressoras Epson."""
-    enc = "cp860"
-    txt = linhas(r, colunas)
-
-    def t(s: str) -> bytes:
-        return s.encode(enc, errors="replace")
-
     out = bytearray()
-    out += ESC + b"@"                      # inicializa
-    out += ESC + b"t" + bytes([codepage])  # tabela de caracteres
-    out += ESC + b"a\x01" + ESC + b"E\x01"  # centro + negrito
-    out += GS + b"!\x11"                   # título em dobro (largura/altura)
-    out += t(txt[0].strip()) + b"\n"
-    out += GS + b"!\x00" + ESC + b"E\x00" + ESC + b"a\x00"
-    out += b"\n"
-    for linha in txt[2:]:
-        if linha.strip() == "":
-            out += b"\n"
-            continue
-        out += ESC + b"E\x01" + t(linha) + ESC + b"E\x00" + b"\n"
+    out += ESC + b"@"                        # inicializa
+    out += ESC + b"t" + bytes([codepage])    # tabela de caracteres
+    out += ESC + b"a\x00" + ESC + b"E\x01"   # esquerda (margem já embutida) + negrito
+    for texto, tam in blocos(r, colunas):
+        out += GS + b"!" + bytes([tam])
+        out += texto.encode("cp860", errors="replace") + b"\n"
+    out += GS + b"!\x00" + ESC + b"E\x00"
     out += b"\n\n\n"
     if cortar:
-        out += GS + b"V\x42\x00"           # avança e corta (parcial)
+        out += GS + b"V\x42\x00"             # avança e corta (parcial)
     return bytes(out)
