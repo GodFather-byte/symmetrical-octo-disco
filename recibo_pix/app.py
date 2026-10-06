@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from . import __version__, printer
-from .ticket import COLUNAS, Recibo, escpos, linhas
+from .ticket import COLUNAS, VALOR_COMISSAO, VALOR_SHOW, Recibo, calcular_total, escpos, linhas
 
 CONFIG = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ReciboPix.json")
 
@@ -46,6 +46,9 @@ class App(tk.Tk):
         self.impressora = tk.StringVar()
         self.copias = tk.IntVar(value=1)
         self._montar(cfg)
+        for k in ("qtd_show", "comissoes"):
+            self.vars[k].trace_add("write", lambda *_: self.vars["total"].set(
+                calcular_total(self.vars["qtd_show"].get(), self.vars["comissoes"].get())))
         for v in self.vars.values():
             v.trace_add("write", lambda *_: self._preview())
         self.papel.trace_add("write", lambda *_: self._preview())
@@ -62,7 +65,11 @@ class App(tk.Tk):
             ttk.Label(f, text=rotulo).grid(row=i, column=0, sticky="w", **pad)
             e = ttk.Entry(f, textvariable=self.vars[k], width=34)
             e.grid(row=i, column=1, **pad)
-            self.entradas.append(e)
+            if k == "total":  # calculado automaticamente
+                e.configure(state="readonly")
+                ttk.Label(f, text=f"(show R$ {VALOR_SHOW} + comissão R$ {VALOR_COMISSAO})", foreground="#666").grid(row=i, column=2, sticky="w")
+            else:
+                self.entradas.append(e)
         n = len(CAMPOS)
         ttk.Label(f, text="Data").grid(row=n, column=0, sticky="w", **pad)
         e = ttk.Entry(f, textvariable=self.vars["data"], width=14)
