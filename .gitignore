@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+build/
+dist/
+dist-installer/
+*.spec
+.pytest_cache/
