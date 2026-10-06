@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from . import __version__, printer
-from .ticket import COLUNAS, VALOR_COMISSAO, VALOR_SHOW, Recibo, calcular_total, escpos, linhas
+from .ticket import COLUNAS, VALOR_COMISSAO, VALOR_SHOW, VALORES_SHOW, Recibo, calcular_total, escpos, linhas
 
 CONFIG = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ReciboPix.json")
 
@@ -45,15 +45,23 @@ class App(tk.Tk):
         self.papel = tk.StringVar(value=cfg.get("papel", "80mm"))
         self.impressora = tk.StringVar()
         self.copias = tk.IntVar(value=1)
+        self.valor_show = tk.IntVar(value=VALOR_SHOW)
         self._montar(cfg)
-        for k in ("qtd_show", "comissoes"):
-            self.vars[k].trace_add("write", lambda *_: self.vars["total"].set(
-                calcular_total(self.vars["qtd_show"].get(), self.vars["comissoes"].get())))
+        for v in (self.vars["qtd_show"], self.vars["comissoes"], self.valor_show):
+            v.trace_add("write", lambda *_: self.vars["total"].set(
+                calcular_total(self.vars["qtd_show"].get(), self.vars["comissoes"].get(), self._valor_show())))
         for v in self.vars.values():
             v.trace_add("write", lambda *_: self._preview())
         self.papel.trace_add("write", lambda *_: self._preview())
         self._preview()
         self.bind("<Control-p>", lambda e: self.imprimir())
+        self.bind("<F2>", lambda e: self.valor_show.set(VALORES_SHOW[1 - VALORES_SHOW.index(self.valor_show.get())]))
+
+    def _valor_show(self) -> int:
+        try:
+            return int(self.valor_show.get())
+        except tk.TclError:
+            return VALOR_SHOW
 
     def _montar(self, cfg):
         pad = {"padx": 8, "pady": 4}
@@ -67,9 +75,15 @@ class App(tk.Tk):
             e.grid(row=i, column=1, **pad)
             if k == "total":  # calculado automaticamente
                 e.configure(state="readonly")
-                ttk.Label(f, text=f"(show R$ {VALOR_SHOW} + comissão R$ {VALOR_COMISSAO})", foreground="#666").grid(row=i, column=2, sticky="w")
+                ttk.Label(f, text=f"(+ R$ {VALOR_COMISSAO} por comissão)", foreground="#666").grid(row=i, column=2, sticky="w")
             else:
                 self.entradas.append(e)
+            if k == "qtd_show":
+                rf = ttk.Frame(f)
+                rf.grid(row=i, column=2, sticky="w")
+                ttk.Label(rf, text="Valor do show (F2):").pack(side="left")
+                for v in VALORES_SHOW:
+                    ttk.Radiobutton(rf, text=f"R$ {v}", value=v, variable=self.valor_show).pack(side="left", padx=3)
         n = len(CAMPOS)
         ttk.Label(f, text="Data").grid(row=n, column=0, sticky="w", **pad)
         e = ttk.Entry(f, textvariable=self.vars["data"], width=14)
@@ -120,6 +134,7 @@ class App(tk.Tk):
     def limpar(self):
         for k, v in self.vars.items():
             v.set(Recibo.hoje() if k == "data" else "")
+        self.valor_show.set(VALOR_SHOW)  # volta ao padrão no próximo recibo
         self.entradas[0].focus_set()
 
     def imprimir(self):

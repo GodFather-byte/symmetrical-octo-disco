@@ -25,7 +25,9 @@ def test_escpos():
 
 def test_total():
     from recibo_pix.ticket import calcular_total
-    assert calcular_total("1", "1") == "R$ 95,00"
-    assert calcular_total("3", "2") == "R$ 280,00"
-    assert calcular_total("15", "") == "R$ 1.350,00"
+    assert calcular_total("1", "1") == "R$ 65,00"
+    assert calcular_total("1", "1", 50) == "R$ 55,00"
+    assert calcular_total("3", "2") == "R$ 190,00"
+    assert calcular_total("3", "2", 50) == "R$ 160,00"
+    assert calcular_total("20", "") == "R$ 1.200,00"
     assert calcular_total("", "") == ""
