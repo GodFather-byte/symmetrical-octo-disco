@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from . import __version__, printer
-from .ticket import COLUNAS, Recibo, escpos, linhas
+from .ticket import COLUNAS, VALOR_COMISSAO, VALOR_SHOW, Recibo, calcular_total, escpos, linhas
 
 CONFIG = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ReciboPix.json")
 
@@ -46,6 +46,9 @@ class App(tk.Tk):
         self.impressora = tk.StringVar()
         self.copias = tk.IntVar(value=1)
         self._montar(cfg)
+        for k in ("qtd_show", "comissoes"):
+            self.vars[k].trace_add("write", lambda *_: self.vars["total"].set(
+                calcular_total(self.vars["qtd_show"].get(), self.vars["comissoes"].get())))
         for v in self.vars.values():
             v.trace_add("write", lambda *_: self._preview())
         self.papel.trace_add("write", lambda *_: self._preview())
@@ -57,12 +60,28 @@ class App(tk.Tk):
         f = ttk.Frame(self, padding=10)
         f.grid(row=0, column=0, sticky="nsew")
 
+        self.entradas = []
         for i, (k, rotulo) in enumerate(CAMPOS):
             ttk.Label(f, text=rotulo).grid(row=i, column=0, sticky="w", **pad)
-            ttk.Entry(f, textvariable=self.vars[k], width=34).grid(row=i, column=1, **pad)
+            e = ttk.Entry(f, textvariable=self.vars[k], width=34)
+            e.grid(row=i, column=1, **pad)
+            if k == "total":  # calculado automaticamente
+                e.configure(state="readonly")
+                ttk.Label(f, text=f"(show R$ {VALOR_SHOW} + comissão R$ {VALOR_COMISSAO})", foreground="#666").grid(row=i, column=2, sticky="w")
+            else:
+                self.entradas.append(e)
         n = len(CAMPOS)
         ttk.Label(f, text="Data").grid(row=n, column=0, sticky="w", **pad)
-        ttk.Entry(f, textvariable=self.vars["data"], width=14).grid(row=n, column=1, sticky="w", **pad)
+        e = ttk.Entry(f, textvariable=self.vars["data"], width=14)
+        e.grid(row=n, column=1, sticky="w", **pad)
+        self.entradas.append(e)
+        # Enter: vai para o próximo campo; no último (Data), imprime.
+        for i, e in enumerate(self.entradas):
+            if i + 1 < len(self.entradas):
+                e.bind("<Return>", lambda ev, nxt=self.entradas[i + 1]: (nxt.focus_set(), nxt.select_range(0, "end"), "break")[-1])
+            else:
+                e.bind("<Return>", lambda ev: (self.imprimir(), "break")[-1])
+        self.entradas[0].focus_set()
 
         ttk.Separator(f).grid(row=n + 1, column=0, columnspan=2, sticky="ew", pady=6)
 
@@ -101,6 +120,7 @@ class App(tk.Tk):
     def limpar(self):
         for k, v in self.vars.items():
             v.set(Recibo.hoje() if k == "data" else "")
+        self.entradas[0].focus_set()
 
     def imprimir(self):
         nome = self.impressora.get()
@@ -114,7 +134,7 @@ class App(tk.Tk):
             messagebox.showerror("Erro ao imprimir", str(e))
             return
         _salvar({"impressora": nome, "papel": self.papel.get()})
-        messagebox.showinfo("Pronto", "Enviado para a impressora.")
+        self.limpar()  # pronto para o próximo recibo
 
 
 def main():

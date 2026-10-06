@@ -23,24 +23,37 @@ class Recibo:
         return date.today().strftime("%d/%m/%Y")
 
 
+VALOR_SHOW = 90
+VALOR_COMISSAO = 5
+
+
+def _inteiro(texto: str) -> int:
+    try:
+        return max(0, int(texto.strip()))
+    except ValueError:
+        return 0
+
+
+def calcular_total(qtd_show: str, comissoes: str) -> str:
+    """Total = shows x R$ 90 + comissões x R$ 5, formatado 'R$ 95,00' ('' se ambos vazios)."""
+    if not qtd_show.strip() and not comissoes.strip():
+        return ""
+    total = _inteiro(qtd_show) * VALOR_SHOW + _inteiro(comissoes) * VALOR_COMISSAO
+    return f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _campo(rotulo: str, valor: str, colunas: int) -> str:
-    """'ROTULO: valor____' preenchido com sublinhado até o fim da linha."""
+    """'ROTULO: valor' (sem linhas de preenchimento)."""
     valor = " ".join(valor.split())
-    prefixo = f"{rotulo}"
-    if valor:
-        texto = f"{prefixo} {valor} "
-    else:
-        texto = prefixo
-    texto = texto[:colunas]
-    return texto + "_" * (colunas - len(texto))
+    return (f"{rotulo}: {valor}" if valor else f"{rotulo}:")[:colunas]
 
 
 def _data(valor: str, colunas: int) -> str:
     rotulo = "DATA"
     if valor:
-        corpo = f"{rotulo} {valor}"
+        corpo = f"{rotulo}: {valor}"
     else:
-        corpo = f"{rotulo} ____/____/______"
+        corpo = f"{rotulo}: ____/____/______"
     return corpo.center(colunas).rstrip()
 
 
@@ -55,7 +68,7 @@ def linhas(r: Recibo, colunas: int = 48) -> list[str]:
         "",
         _campo("COMISSÕES", r.comissoes, colunas),
         "",
-        _campo("TOTAL", r.total, colunas),
+        _campo("TOTAL", r.total or calcular_total(r.qtd_show, r.comissoes), colunas),
         "",
         _campo("RESPONSAVEL", r.responsavel, colunas),
         "",
