@@ -23,7 +23,8 @@ class Recibo:
         return date.today().strftime("%d/%m/%Y")
 
 
-VALOR_SHOW = 90
+VALORES_SHOW = (60, 50)  # valor por show conforme a pessoa
+VALOR_SHOW = VALORES_SHOW[0]  # padrão
 VALOR_COMISSAO = 5
 
 
@@ -34,11 +35,11 @@ def _inteiro(texto: str) -> int:
         return 0
 
 
-def calcular_total(qtd_show: str, comissoes: str) -> str:
-    """Total = shows x R$ 90 + comissões x R$ 5, formatado 'R$ 95,00' ('' se ambos vazios)."""
+def calcular_total(qtd_show: str, comissoes: str, valor_show: int = VALOR_SHOW) -> str:
+    """Total = shows x valor_show (R$ 60 ou 50) + comissões x R$ 5, formatado 'R$ 95,00' ('' se ambos vazios)."""
     if not qtd_show.strip() and not comissoes.strip():
         return ""
-    total = _inteiro(qtd_show) * VALOR_SHOW + _inteiro(comissoes) * VALOR_COMISSAO
+    total = _inteiro(qtd_show) * valor_show + _inteiro(comissoes) * VALOR_COMISSAO
     return f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
