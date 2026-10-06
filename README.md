@@ -10,7 +10,7 @@ Epson (ESC/POS, ex.: TM-T20, TM-T88), papel 80 mm ou 58 mm.
 3. Instale o driver da Epson normalmente no Windows; o programa lista as impressoras instaladas.
 
 ## Uso
-Preencha os campos, confira a prévia, escolha a impressora/papel e clique **Imprimir** (Ctrl+P).
+Preencha os campos (Enter passa para o próximo; Enter na Data imprime e limpa para o próximo recibo), confira a prévia, escolha a impressora/papel e clique **Imprimir** (Ctrl+P).
 Campos vazios saem como linha em branco para escrever à mão. Se a data ficar vazia, imprime `____/____/______`.
 
 ## Gerar o instalador manualmente

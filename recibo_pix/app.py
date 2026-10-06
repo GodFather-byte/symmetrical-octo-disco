@@ -57,12 +57,24 @@ class App(tk.Tk):
         f = ttk.Frame(self, padding=10)
         f.grid(row=0, column=0, sticky="nsew")
 
+        self.entradas = []
         for i, (k, rotulo) in enumerate(CAMPOS):
             ttk.Label(f, text=rotulo).grid(row=i, column=0, sticky="w", **pad)
-            ttk.Entry(f, textvariable=self.vars[k], width=34).grid(row=i, column=1, **pad)
+            e = ttk.Entry(f, textvariable=self.vars[k], width=34)
+            e.grid(row=i, column=1, **pad)
+            self.entradas.append(e)
         n = len(CAMPOS)
         ttk.Label(f, text="Data").grid(row=n, column=0, sticky="w", **pad)
-        ttk.Entry(f, textvariable=self.vars["data"], width=14).grid(row=n, column=1, sticky="w", **pad)
+        e = ttk.Entry(f, textvariable=self.vars["data"], width=14)
+        e.grid(row=n, column=1, sticky="w", **pad)
+        self.entradas.append(e)
+        # Enter: vai para o próximo campo; no último (Data), imprime.
+        for i, e in enumerate(self.entradas):
+            if i + 1 < len(self.entradas):
+                e.bind("<Return>", lambda ev, nxt=self.entradas[i + 1]: (nxt.focus_set(), nxt.select_range(0, "end"), "break")[-1])
+            else:
+                e.bind("<Return>", lambda ev: (self.imprimir(), "break")[-1])
+        self.entradas[0].focus_set()
 
         ttk.Separator(f).grid(row=n + 1, column=0, columnspan=2, sticky="ew", pady=6)
 
@@ -101,6 +113,7 @@ class App(tk.Tk):
     def limpar(self):
         for k, v in self.vars.items():
             v.set(Recibo.hoje() if k == "data" else "")
+        self.entradas[0].focus_set()
 
     def imprimir(self):
         nome = self.impressora.get()
@@ -114,7 +127,7 @@ class App(tk.Tk):
             messagebox.showerror("Erro ao imprimir", str(e))
             return
         _salvar({"impressora": nome, "papel": self.papel.get()})
-        messagebox.showinfo("Pronto", "Enviado para a impressora.")
+        self.limpar()  # pronto para o próximo recibo
 
 
 def main():
