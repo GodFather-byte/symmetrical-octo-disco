@@ -8,6 +8,7 @@ def test_linhas_largura():
             assert len(l) <= col
         for t, tam in blocos(r, col):
             assert len(t) <= (col if tam == 0x01 else col // 2)
+    assert len(blocos(Recibo(), 48)) == 8  # compacto: título + 6 campos
 
 
 def test_campos_preenchidos():
@@ -23,7 +24,7 @@ def test_data_vazia_mostra_linha():
 def test_escpos():
     b = escpos(Recibo(comissoes="é"))
     assert b.startswith(b"\x1b@") and b.endswith(b"\x1dV\x42\x00")
-    assert b"\x1ba\x01" in b and b"\x1d!\x11" in b
+    assert b"\x1d!\x11" in b
     assert "COMISSÕES".encode("cp860") in b
 
 

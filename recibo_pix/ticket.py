@@ -45,16 +45,18 @@ def calcular_total(qtd_show: str, comissoes: str, valor_show: int = VALOR_SHOW) 
 
 
 # Tamanhos (GS ! n): 0x11 = dobro largura+altura, 0x01 = dobro altura
-TITULO, ROTULO, VALOR = 0x11, 0x01, 0x11
+GRANDE, ALTO = 0x11, 0x01
 
 
 def blocos(r: Recibo, colunas: int = 48) -> list[tuple[str, int]]:
-    """Lista de (texto, tamanho). Tudo centralizado; '' = linha em branco.
+    """Lista de (texto, tamanho): uma linha por campo, bloco centralizado no papel
+    (a centralização é feita com espaços, na largura do tamanho escolhido).
 
-    Em tamanho dobrado cabem colunas//2 caracteres por linha, então valores
-    longos são quebrados em mais de uma linha.
+    Papel largo (80 mm): dobro de largura e altura (colunas//2 caracteres).
+    Papel estreito (58 mm): só dobro de altura, para caber o texto.
     """
-    larg = colunas // 2
+    tam = GRANDE if colunas >= 48 else ALTO
+    larg = colunas // 2 if tam == GRANDE else colunas
     total = r.total or calcular_total(r.qtd_show, r.comissoes)
     campos = [
         ("NOME", r.nome),
@@ -64,19 +66,23 @@ def blocos(r: Recibo, colunas: int = 48) -> list[tuple[str, int]]:
         ("RESPONSAVEL", r.responsavel),
         ("DATA", r.data or "____/____/______"),
     ]
-    out: list[tuple[str, int]] = [("PAGAMENTO PIX", TITULO), ("", 0)]
+    corpo: list[str] = []
     for rotulo, valor in campos:
-        out.append((rotulo, ROTULO))
         valor = " ".join(valor.split())
-        for linha in textwrap.wrap(valor, larg, break_long_words=True) or [""]:
-            out.append((linha, VALOR))
-        out.append(("", 0))
-    return out
+        texto = f"{rotulo}: {valor}" if valor else f"{rotulo}:"
+        corpo += textwrap.wrap(texto, larg, break_long_words=True)
+    margem = " " * ((larg - max(len(l) for l in corpo)) // 2)  # bloco centralizado, texto alinhado
+    return [("PAGAMENTO PIX".center(larg).rstrip(), tam), ("", 0)] + [(margem + l, tam) for l in corpo]
 
 
 def linhas(r: Recibo, colunas: int = 48) -> list[str]:
     """Texto centralizado para a prévia na tela."""
-    return [t.center(colunas).rstrip() for t, _ in blocos(r, colunas)]
+    # largura útil = colunas//2 em tamanho dobrado; centraliza esse bloco na prévia
+    out = []
+    for t, tam in blocos(r, colunas):
+        util = colunas // 2 if tam == GRANDE else colunas
+        out.append(" " * ((colunas - util) // 2) + t)
+    return out
 
 
 def escpos(r: Recibo, colunas: int = 48, codepage: int = 3, cortar: bool = True) -> bytes:
@@ -84,11 +90,11 @@ def escpos(r: Recibo, colunas: int = 48, codepage: int = 3, cortar: bool = True)
     out = bytearray()
     out += ESC + b"@"                        # inicializa
     out += ESC + b"t" + bytes([codepage])    # tabela de caracteres
-    out += ESC + b"a\x01" + ESC + b"E\x01"   # centralizado + negrito
+    out += ESC + b"a\x00" + ESC + b"E\x01"   # esquerda (margem já embutida) + negrito
     for texto, tam in blocos(r, colunas):
         out += GS + b"!" + bytes([tam])
         out += texto.encode("cp860", errors="replace") + b"\n"
-    out += GS + b"!\x00" + ESC + b"E\x00" + ESC + b"a\x00"
+    out += GS + b"!\x00" + ESC + b"E\x00"
     out += b"\n\n\n"
     if cortar:
         out += GS + b"V\x42\x00"             # avança e corta (parcial)
